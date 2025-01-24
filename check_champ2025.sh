@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Название скрипта
-SCRIPT_NAME="check_champ2025"
-VERSION="1.0"
-AUTHOR="Your Name"
-GITHUB_REPO="https://github.com/yourusername/check_champ2025"
-
 # Цвета для вывода
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -13,140 +7,143 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Файл для логирования
-LOG_FILE="check_champ2025.log"
-
-# Функция для вывода заголовка
+# Функция для красивого вывода
 print_header() {
     echo -e "${BLUE}"
     echo "============================================"
-    echo " $SCRIPT_NAME - Version $VERSION"
-    echo " Author: $AUTHOR"
-    echo " GitHub: $GITHUB_REPO"
+    echo " Система оценки Чемпионата 2025"
+    echo " Версия 6.0"
     echo "============================================"
     echo -e "${NC}"
 }
 
-# Функция для вывода сообщения об ошибке
-print_error() {
-    echo -e "${RED}[ERROR] $1${NC}"
+# Запрос VM ID для всех устройств
+declare -A VM_IDS=()
+get_vm_ids() {
+    echo -e "${YELLOW}Введите VM ID для каждого устройства:${NC}"
+    VM_IDS=(
+        [R-DT]=$(read -p "R-DT: " val; echo $val)
+        [R-HQ]=$(read -p "R-HQ: " val; echo $val)
+        [SRV1-HQ]=$(read -p "SRV1-HQ: " val; echo $val)
+        [SRV1-DT]=$(read -p "SRV1-DT: " val; echo $val)
+        [SW1-HQ]=$(read -p "SW1-HQ: " val; echo $val)
+        [SW2-HQ]=$(read -p "SW2-HQ: " val; echo $val)
+        [SW3-HQ]=$(read -p "SW3-HQ: " val; echo $val)
+        [FW-DT]=$(read -p "FW-DT: " val; echo $val)
+        [SRV2-DT]=$(read -p "SRV2-DT: " val; echo $val)
+        [SRV3-DT]=$(read -p "SRV3-DT: " val; echo $val)
+        [ADMIN-DT]=$(read -p "ADMIN-DT: " val; echo $val)
+        [CLI-DT]=$(read -p "CLI-DT: " val; echo $val)
+        [ADMIN-HQ]=$(read -p "ADMIN-HQ: " val; echo $val)
+        [CLI-HQ]=$(read -p "CLI-HQ: " val; echo $val)
+        [SW-DT]=$(read -p "SW-DT: " val; echo $val)
+        [CLI]=$(read -p "CLI: " val; echo $val)  # Новое устройство CLI
+    )
 }
 
-# Функция для вывода сообщения об успехе
-print_success() {
-    echo -e "${GREEN}[SUCCESS] $1${NC}"
-}
-
-# Функция для вывода информационного сообщения
-print_info() {
-    echo -e "${YELLOW}[INFO] $1${NC}"
-}
-
-# Функция для запроса VM ID
-get_vm_id() {
-    local vm_name=$1
-    while true; do
-        read -p "Введите VM ID для $vm_name: " vm_id
-        if [[ $vm_id =~ ^[0-9]+$ ]]; then
-            echo $vm_id
-            break
-        else
-            print_error "Некорректный VM ID. Пожалуйста, введите число."
-        fi
-    done
-}
-
-# Функция для проверки выполнения пункта и добавления баллов
-check_and_add_score() {
-    local description=$1
-    local score=$2
-    local command=$3
-
-    echo -e "${BLUE}Проверка: $description${NC}"
-    if eval $command; then
-        print_success "Выполнено. Баллы: $score"
-        total_score=$((total_score + score))
+# Функция проверки
+check_score() {
+    local desc="$1"
+    local score="$2"
+    local cmd="$3"
+    
+    echo -e "${BLUE}Проверка: ${desc}${NC}"
+    if eval "$cmd"; then
+        echo -e "${GREEN}✅ Успешно | Баллы: +${score}${NC}"
+        total_score=$(awk "BEGIN {print $total_score + $score}")
     else
-        print_error "Не выполнено. Баллы: 0"
+        echo -e "${RED}❌ Ошибка  | Баллы: 0${NC}"
     fi
     echo ""
 }
 
-# Логирование результатов
-log_result() {
-    local message=$1
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $message" >> $LOG_FILE
-}
-
-# Основная функция
+# Основная логика
 main() {
-    print_header
-
-    # Запрос VM ID для каждой машины
-    print_info "Введите VM ID для каждой машины:"
-    R_DT=$(get_vm_id "R-DT")
-    R_HQ=$(get_vm_id "R-HQ")
-    SRV1_HQ=$(get_vm_id "SRV1-HQ")
-    SRV1_DT=$(get_vm_id "SRV1-DT")
-    SW1_HQ=$(get_vm_id "SW1-HQ")
-    SW2_HQ=$(get_vm_id "SW2-HQ")
-    SW3_HQ=$(get_vm_id "SW3-HQ")
-    FW_DT=$(get_vm_id "FW-DT")
-
-    # Инициализация переменных для хранения баллов
     total_score=0
+    print_header
+    get_vm_ids
 
-    # Проверка базовой настройки
-    check_and_add_score "Настройка полных доменных имен" 0.3 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'name:'"
-    check_and_add_score "Адресация офиса HQ" 0.4 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'ipconfig0'"
-    check_and_add_score "Адресация офиса DT" 0.3 "pvesh get /nodes/localhost/qemu/$R_DT/config | grep -q 'ipconfig0'"
-    check_and_add_score "Адресация туннеля" 0.4 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'ipconfig1'"
-    check_and_add_score "Создание пользователя sshuser" 0.5 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'sshuser'"
-    check_and_add_score "Пользователь sshuser может запускать sudo без пароля" 0.8 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'NOPASSWD'"
-    check_and_add_score "Пользователь sshuser на маршрутизаторах имеет максимальные права" 0.8 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'ALL=(ALL) ALL'"
+    # Базовые настройки
+    echo -e "${YELLOW}=== Базовые настройки ===${NC}"
+    check_score "Полные доменные имена" 0.3 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'name:'"
+    check_score "Адресация HQ" 0.4 "pvesh get /nodes/localhost/qemu/${VM_IDS[R-HQ]}/config | grep -q '192.168.11.0/24'"
+    check_score "Адресация DT" 0.3 "pvesh get /nodes/localhost/qemu/${VM_IDS[R-DT]}/config | grep -q '192.168.33.0/24'"
+    check_score "Создание пользователя sshuser" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'sshuser'"
+    check_score "Пользователь sshuser может запускать sudo без пароля" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'sudo'"
+    check_score "Пользователь sshuser на маршрутизаторах имеет максимальные права" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[R-HQ]}/config | grep -q 'privileges'"
 
-    # Проверка настройки коммутации
-    check_and_add_score "Установка Open vSwitch на SW1-HQ, SW2-HQ, SW3-HQ" 0.4 "pvesh get /nodes/localhost/qemu/$SW1_HQ/config | grep -q 'openvswitch'"
-    check_and_add_score "Создание коммутатора с правильным именем" 0.4 "pvesh get /nodes/localhost/qemu/$SW1_HQ/config | grep -q 'SW1-HQ'"
-    check_and_add_score "Порты переданы в управление Open vSwitch" 0.4 "pvesh get /nodes/localhost/qemu/$SW1_HQ/config | grep -q 'eth0'"
-    check_and_add_score "Настройка STP, корень SW1-HQ" 0.8 "pvesh get /nodes/localhost/qemu/$SW1_HQ/config | grep -q 'stp_enable=true'"
+    # Коммутация
+    echo -e "${YELLOW}=== Настройка коммутации ===${NC}"
+    check_score "Open vSwitch на SW1-HQ" 0.4 "pvesh get /nodes/localhost/qemu/${VM_IDS[SW1-HQ]}/config | grep -q 'openvswitch'"
+    check_score "STP корень SW1-HQ" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[SW1-HQ]}/config | grep -q 'stp_enable=true'"
+    check_score "VLAN на SW1-HQ" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SW1-HQ]}/config | grep -q 'vlan110'"
+    check_score "VLAN на SW2-HQ" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SW2-HQ]}/config | grep -q 'vlan220'"
+    check_score "VLAN на SW3-HQ" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SW3-HQ]}/config | grep -q 'vlan330'"
+    check_score "VLAN на SW-DT" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SW-DT]}/config | grep -q 'vlan440'"
 
-    # Проверка настройки подключения маршрутизаторов к провайдеру
-    check_and_add_score "Подключение R-DT к провайдеру" 0.4 "pvesh get /nodes/localhost/qemu/$R_DT/config | grep -q '172.16.4.0/28'"
-    check_and_add_score "Подключение R-HQ к провайдеру" 0.4 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q '172.16.5.0/28'"
+    # Маршрутизация
+    echo -e "${YELLOW}=== Настройка маршрутизации ===${NC}"
+    check_score "NAT для офисов" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[R-HQ]}/config | grep -q 'MASQUERADE'"
+    check_score "GRE туннель" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[R-HQ]}/config | grep -q 'gre'"
+    check_score "OSPF между R-DT и FW-DT" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[R-DT]}/config | grep -q 'ospf'"
 
-    # Проверка настройки NAT
-    check_and_add_score "Настройка NAT для офисов" 0.8 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'MASQUERADE'"
-
-    # Проверка настройки DHCP
-    check_and_add_score "Настройка DHCP CLI на R-HQ" 0.8 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'dhcpd'"
-    check_and_add_score "Настройка DHCP CLI на R-DT" 0.8 "pvesh get /nodes/localhost/qemu/$R_DT/config | grep -q 'dhcpd'"
-
-    # Проверка настройки GRE и OSPF
-    check_and_add_score "Настройка GRE между DT и HQ" 0.8 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'gre'"
-    check_and_add_score "Настройка OSPF over GRE между DT и HQ" 0.5 "pvesh get /nodes/localhost/qemu/$R_HQ/config | grep -q 'ospf'"
-    check_and_add_score "Настройка OSPF между R-DT и FW-DT" 0.5 "pvesh get /nodes/localhost/qemu/$R_DT/config | grep -q 'ospf'"
-
-    # Проверка настройки DNS
-    check_and_add_score "Настройка DNS на SRV1-HQ" 1 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'example.com'"
-    check_and_add_score "Резервный DNS на SRV1-DT" 1 "pvesh get /nodes/localhost/qemu/$SRV1_DT/config | grep -q 'example.com'"
-
-    # Проверка настройки NTP
-    check_and_add_score "Настройка NTP сервера на SRV1-HQ" 0.5 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'ntp2.vniiftri.ru'"
-    check_and_add_score "Синхронизация времени с SRV1-HQ" 0.8 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'chrony'"
-
-    # Проверка настройки SAMBA AD
-    check_and_add_score "Настройка SAMBA AD на SRV1-HQ" 1.5 "pvesh get /nodes/localhost/qemu/$SRV1_HQ/config | grep -q 'samba'"
-    check_and_add_score "Резервный контроллер домена SRV1-DT" 1 "pvesh get /nodes/localhost/qemu/$SRV1_DT/config | grep -q 'samba'"
-
-    # Вывод общего балла
+    # Вывод промежуточных результатов
     echo -e "${BLUE}============================================${NC}"
-    echo -e "${GREEN}✅ Общий балл: $total_score${NC}"
+    echo -e "${GREEN}Предварительный балл: ${total_score}${NC}"
     echo -e "${BLUE}============================================${NC}"
-
-    # Логирование результатов
-    log_result "Общий балл: $total_score"
 }
 
-# Запуск основной функции
-main
+# Запуск первой части
+main 2>&1 | tee -a evaluation.log
+# Продолжение скрипта после первой части
+
+    # DNS и NTP
+    echo -e "${YELLOW}=== Службы инфраструктуры ===${NC}"
+    check_score "Основной DNS" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'bind9'"
+    check_score "Резервный DNS" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-DT]}/config | grep -q 'bind9'"
+    check_score "NTP сервер" 0.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'ntp2.vniiftri.ru'"
+    check_score "Все устройства синхронизируют время с SRV1-HQ" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'ntp_sync=true'"
+
+    # SAMBA AD
+    echo -e "${YELLOW}=== Доменные службы ===${NC}"
+    check_score "Контроллер домена" 1.5 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'samba'"
+    check_score "Резервный контроллер" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-DT]}/config | grep -q 'samba'"
+    check_score "Общая папка SAMBA" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-HQ]}/config | grep -q 'samba_share'"
+    check_score "Клиенты введены в домен" 0.6 "pvesh get /nodes/localhost/qemu/${VM_IDS[CLI-DT]}/config | grep -q 'domain_joined=true'"
+
+    # Вывод промежуточных результатов
+    echo -e "${BLUE}============================================${NC}"
+    echo -e "${GREEN}Промежуточный балл: ${total_score}${NC}"
+    echo -e "${BLUE}============================================${NC}"
+    # Продолжение скрипта после второй части
+
+    # Docker и Zabbix
+    echo -e "${YELLOW}=== Контейнеризация и мониторинг ===${NC}"
+    check_score "Docker Registry" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV2-DT]}/config | grep -q 'registry:2'"
+    check_score "Zabbix сервер" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV3-DT]}/config | grep -q 'zabbix-web'"
+    check_score "Zabbix мониторинг" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV3-DT]}/config | grep -q 'zabbix-agent'"
+    check_score "Nginx reverse proxy" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[SRV1-DT]}/config | grep -q 'nginx'"
+
+    # Вывод промежуточных результатов
+    echo -e "${BLUE}============================================${NC}"
+    echo -e "${GREEN}Промежуточный балл: ${total_score}${NC}"
+    echo -e "${BLUE}============================================${NC}"
+    # Продолжение скрипта после третьей части
+
+    # Дополнительные сервисы
+    echo -e "${YELLOW}=== Дополнительные сервисы ===${NC}"
+    check_score "Ansible управление" 0.8 "pvesh get /nodes/localhost/qemu/${VM_IDS[ADMIN-DT]}/config | grep -q 'ansible'"
+    check_score "Кибер Бекап" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[ADMIN-HQ]}/config | grep -q 'cyberbackup'"
+    check_score "Резервное копирование на CLI-DT" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[CLI-DT]}/config | grep -q 'backup'"
+    check_score "Резервное копирование на CLI-HQ" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[CLI-HQ]}/config | grep -q 'backup'"
+    check_score "Резервное копирование на CLI" 1.0 "pvesh get /nodes/localhost/qemu/${VM_IDS[CLI]}/config | grep -q 'backup'"
+
+    # Итоговый вывод
+    echo -e "${BLUE}============================================${NC}"
+    echo -e "${GREEN}Финальный балл: ${total_score}${NC}"
+    echo -e "${BLUE}============================================${NC}"
+    echo -e "${YELLOW}Лог проверок сохранен в evaluation.log${NC}"
+}
+
+# Запуск скрипта с записью лога
+main 2>&1 | tee -a evaluation.log
