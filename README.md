@@ -10,8 +10,6 @@
 
 ### Команда для запуска скрипта `check_champ2025.sh`
 
-### Команда для запуска скрипта `check_champ2025.sh`
-
 - **Скачать и запустить скрипт одной командой**:
   ```bash
   (b=main opts=(check_champ2025.sh); script_url="https://raw.githubusercontent.com/rijkzy/check_champ2025/$b/${opts[0]}"; curl -sfOL "$script_url" && { chmod +x ${opts[0]}; ./"${opts[@]}"; rm -f ${opts[0]}; } || echo -e "\e[1;33m\nОшибка скачивания: проверьте подключение к Интернету, настройки DNS, прокси и URL адрес\ncurl exit code: $?\n\e[m" >&2)
